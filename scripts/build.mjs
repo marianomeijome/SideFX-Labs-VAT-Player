@@ -8,8 +8,7 @@ const buildOptions = {
   entryPoints: {
     "sidefx-player": "src/sidefx-player.ts"
   },
-  outdir: "dist",
-  bundle: true,
+  outdir: isServe ? "public/dist" : "dist",
   bundle: true,
   platform: "browser",
   format: "iife",
