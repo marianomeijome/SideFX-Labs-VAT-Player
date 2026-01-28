@@ -243,6 +243,7 @@ const flipVCheckbox = document.getElementById("flipV") as HTMLInputElement;
 const useOffsetCheckbox = document.getElementById("useOffset") as HTMLInputElement;
 const debugModeSelect = document.getElementById("debugMode") as HTMLSelectElement;
 const instancedModeCheckbox = document.getElementById("instancedMode") as HTMLInputElement;
+const instanceCountInput = document.getElementById("instanceCount") as HTMLInputElement;
 const instanceSpacingInput = document.getElementById("instanceSpacing") as HTMLInputElement;
 const inspectorToggle = document.getElementById("inspectorToggle") as HTMLButtonElement;
 const statusEl = document.getElementById("status") as HTMLPreElement;
@@ -413,6 +414,12 @@ useOffsetCheckbox.addEventListener("change", () => {
 instancedModeCheckbox.addEventListener("change", () => {
   if (currentVatMesh) {
     applyInstancing(instancedModeCheckbox.checked);
+  }
+});
+
+instanceCountInput.addEventListener("change", () => {
+  if (currentVatMesh && instancedModeCheckbox.checked) {
+    applyInstancing(true);
   }
 });
 
@@ -885,9 +892,9 @@ function applyInstancing(enable: boolean) {
   vatMaterialInstanced.setFloat("useDiffuseTex", 0.0);
   vatMaterialInstanced.backFaceCulling = false;
 
-  // Create 10x10 grid of instances
-  const instanceCount = 100;
-  const gridSize = 10;
+  // Get instance count and calculate grid size
+  const instanceCount = Math.max(1, Math.min(10000, Number(instanceCountInput.value) || 100));
+  const gridSize = Math.ceil(Math.sqrt(instanceCount));
   const spacing = Number(instanceSpacingInput.value) || 3;
   
   // Calculate animation duration for offset distribution

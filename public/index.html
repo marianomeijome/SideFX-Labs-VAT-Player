@@ -117,14 +117,18 @@
         <div class="control-group checkbox-group">
           <input type="checkbox" id="instancedMode" />
           <div class="checkbox-content">
-            <label for="instancedMode" class="checkbox-label">Instanced Debug (100 copies)</label>
-            <small>Spread 10x10 grid with animation offsets</small>
+            <label for="instancedMode" class="checkbox-label">Instanced Debug Mode</label>
+            <small>Grid of instances with animation offsets</small>
           </div>
         </div>
 
         <div class="inline-row two-col">
           <div class="control-group">
-            <label for="instanceSpacing">Instance Spacing</label>
+            <label for="instanceCount">Instances</label>
+            <input type="number" id="instanceCount" value="100" min="1" max="10000" step="1" />
+          </div>
+          <div class="control-group">
+            <label for="instanceSpacing">Spacing</label>
             <input type="number" id="instanceSpacing" value="3" min="0.5" step="0.5" />
           </div>
         </div>
