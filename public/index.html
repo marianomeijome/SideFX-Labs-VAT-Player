@@ -22,8 +22,16 @@
         </div>
 
         <div class="control-group">
-          <label for="posTexInput">Position Texture (_pos.png)</label>
-          <input type="file" id="posTexInput" accept=".png,.jpg,.jpeg,.tif,.tiff" />
+          <label>Position Textures (_pos.png)</label>
+          <div id="posTexList" class="texture-list"></div>
+          <input type="file" id="posTexInput" accept=".png,.jpg,.jpeg,.tif,.tiff" style="display:none" />
+          <button type="button" id="addPosTexButton" class="secondary add-texture-btn">+ Add Position Texture</button>
+          <small>Add multiple textures to blend between them</small>
+        </div>
+
+        <div class="control-group" id="blendSliderGroup" style="display:none">
+          <label for="blendSlider">Blend: <span id="blendValue">0.00</span></label>
+          <input type="range" id="blendSlider" min="0" max="1" step="0.01" value="0" />
         </div>
 
         <div class="control-group">

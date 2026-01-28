@@ -53,7 +53,18 @@ uniform mat4 world;
 uniform mat4 viewProjection;
 uniform mat4 worldViewProjection;
 
-uniform sampler2D positionTexture;
+// Multiple position textures for blending (up to 8)
+uniform sampler2D positionTexture0;
+uniform sampler2D positionTexture1;
+uniform sampler2D positionTexture2;
+uniform sampler2D positionTexture3;
+uniform sampler2D positionTexture4;
+uniform sampler2D positionTexture5;
+uniform sampler2D positionTexture6;
+uniform sampler2D positionTexture7;
+uniform float numPosTextures;
+uniform float blendValue;
+
 uniform sampler2D normalTexture;
 uniform float vatTime;
 uniform float numFrames;
@@ -72,6 +83,19 @@ varying vec3 vNormal;
 varying vec2 vUV;
 varying vec3 vPosition;
 varying vec3 vDebugColor;
+
+// Helper to sample from indexed texture
+vec4 samplePosTexture(int idx, vec2 uv) {
+    if (idx == 0) return texture2D(positionTexture0, uv);
+    if (idx == 1) return texture2D(positionTexture1, uv);
+    if (idx == 2) return texture2D(positionTexture2, uv);
+    if (idx == 3) return texture2D(positionTexture3, uv);
+    if (idx == 4) return texture2D(positionTexture4, uv);
+    if (idx == 5) return texture2D(positionTexture5, uv);
+    if (idx == 6) return texture2D(positionTexture6, uv);
+    if (idx == 7) return texture2D(positionTexture7, uv);
+    return texture2D(positionTexture0, uv);
+}
 
 void main() {
     // Build instance world matrix if instancing is enabled
@@ -104,7 +128,23 @@ void main() {
     }
     
     vec2 posUV = vec2(finalU, finalV);
-    vec4 posSample = texture2D(positionTexture, posUV);
+    
+    // Sample and blend between position textures
+    vec4 posSample;
+    if (numPosTextures <= 1.0) {
+        // Single texture, no blending
+        posSample = samplePosTexture(0, posUV);
+    } else {
+        // Multiple textures: interpolate based on blend value
+        float t = blendValue * (numPosTextures - 1.0);
+        int idx0 = int(floor(t));
+        int idx1 = int(min(floor(t) + 1.0, numPosTextures - 1.0));
+        float localBlend = fract(t);
+        
+        vec4 sample0 = samplePosTexture(idx0, posUV);
+        vec4 sample1 = samplePosTexture(idx1, posUV);
+        posSample = mix(sample0, sample1, localBlend);
+    }
 
     // Decode position from texture
     vec3 texPos;
@@ -223,6 +263,11 @@ interface VatMetadata {
 const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
 const modelInput = document.getElementById("modelInput") as HTMLInputElement;
 const posTexInput = document.getElementById("posTexInput") as HTMLInputElement;
+const posTexList = document.getElementById("posTexList") as HTMLDivElement;
+const addPosTexButton = document.getElementById("addPosTexButton") as HTMLButtonElement;
+const blendSliderGroup = document.getElementById("blendSliderGroup") as HTMLDivElement;
+const blendSlider = document.getElementById("blendSlider") as HTMLInputElement;
+const blendValueDisplay = document.getElementById("blendValue") as HTMLSpanElement;
 const normalTexInput = document.getElementById("normalTexInput") as HTMLInputElement;
 const metaInput = document.getElementById("metaInput") as HTMLInputElement;
 const meshSelect = document.getElementById("meshSelect") as HTMLSelectElement;
@@ -255,7 +300,14 @@ const statusEl = document.getElementById("status") as HTMLPreElement;
 const engine = new Engine(canvas, true);
 let scene = createScene(engine);
 
-let positionTexture: Texture | null = null;
+// Multiple position textures for blending (max 8)
+interface LoadedPosTexture {
+  texture: Texture;
+  name: string;
+}
+let positionTextures: LoadedPosTexture[] = [];
+let blendValue = 0;
+
 let normalTexture: Texture | null = null;
 let vatMaterial: ShaderMaterial | null = null;
 let vatMaterialInstanced: ShaderMaterial | null = null;
@@ -282,6 +334,13 @@ engine.runRenderLoop(() => {
     if (vatMaterialInstanced) {
       vatMaterialInstanced.setFloat("vatTime", vatTime);
     }
+  }
+  // Update blend value continuously (in case slider is moved while playing)
+  if (vatMaterial) {
+    vatMaterial.setFloat("blendValue", blendValue);
+  }
+  if (vatMaterialInstanced) {
+    vatMaterialInstanced.setFloat("blendValue", blendValue);
   }
 });
 
@@ -311,24 +370,63 @@ modelInput.addEventListener("change", async () => {
   }
 });
 
+// Add position texture button triggers file input
+addPosTexButton.addEventListener("click", () => {
+  posTexInput.click();
+});
+
 posTexInput.addEventListener("change", async () => {
   const file = posTexInput.files?.[0];
   if (!file) return;
 
+  if (positionTextures.length >= 8) {
+    setStatus("Maximum 8 position textures allowed.");
+    posTexInput.value = "";
+    return;
+  }
+
   setStatus("Loading position texture...");
 
   try {
-    positionTexture?.dispose();
-    positionTexture = await loadTextureFromFile(file, scene);
+    const texture = await loadTextureFromFile(file, scene);
 
     // Detect if packed (PNG/JPG) or unpacked (EXR/TIFF)
     const ext = file.name.split(".").pop()?.toLowerCase() || "";
     isPacked = !["exr", "tiff", "tif", "hdr"].includes(ext);
 
-    setStatus(`Position texture loaded: ${file.name} (${isPacked ? "packed" : "HDR"})`);
+    positionTextures.push({ texture, name: file.name });
+    updatePosTexList();
+    updateBlendSliderVisibility();
+
+    setStatus(`Position texture ${positionTextures.length} loaded: ${file.name} (${isPacked ? "packed" : "HDR"})`);
     updateButtons();
   } catch (err) {
     setStatus(`Failed to load position texture: ${err}`);
+  }
+
+  // Clear input so same file can be selected again
+  posTexInput.value = "";
+});
+
+// Blend slider
+blendSlider.addEventListener("input", () => {
+  blendValue = Number(blendSlider.value);
+  blendValueDisplay.textContent = blendValue.toFixed(2);
+});
+
+// Handle remove texture button clicks (event delegation)
+posTexList.addEventListener("click", (e) => {
+  const target = e.target as HTMLElement;
+  if (target.classList.contains("remove-texture-btn")) {
+    const index = Number(target.dataset.index);
+    if (!isNaN(index) && index >= 0 && index < positionTextures.length) {
+      positionTextures[index].texture.dispose();
+      positionTextures.splice(index, 1);
+      updatePosTexList();
+      updateBlendSliderVisibility();
+      updateButtons();
+      setStatus(`Removed position texture. ${positionTextures.length} remaining.`);
+    }
   }
 });
 
@@ -484,8 +582,18 @@ function resetState() {
   vatMaterial = null;
   vatMaterialInstanced?.dispose();
   vatMaterialInstanced = null;
-  positionTexture?.dispose();
-  positionTexture = null;
+  
+  // Dispose all position textures
+  for (const pt of positionTextures) {
+    pt.texture.dispose();
+  }
+  positionTextures = [];
+  blendValue = 0;
+  blendSlider.value = "0";
+  blendValueDisplay.textContent = "0.00";
+  updatePosTexList();
+  updateBlendSliderVisibility();
+  
   normalTexture?.dispose();
   normalTexture = null;
   originalMaterials.clear();
@@ -494,6 +602,31 @@ function resetState() {
   currentVatMesh = null;
   isInstancedMode = false;
   instancedModeCheckbox.checked = false;
+}
+
+function updatePosTexList() {
+  posTexList.innerHTML = "";
+  for (let i = 0; i < positionTextures.length; i++) {
+    const item = document.createElement("div");
+    item.className = "texture-item";
+    item.innerHTML = `
+      <span class="texture-index">${i + 1}</span>
+      <span class="texture-name" title="${positionTextures[i].name}">${positionTextures[i].name}</span>
+      <button type="button" class="remove-texture-btn" data-index="${i}">×</button>
+    `;
+    posTexList.appendChild(item);
+  }
+}
+
+function updateBlendSliderVisibility() {
+  if (positionTextures.length >= 2) {
+    blendSliderGroup.style.display = "block";
+  } else {
+    blendSliderGroup.style.display = "none";
+    blendValue = 0;
+    blendSlider.value = "0";
+    blendValueDisplay.textContent = "0.00";
+  }
 }
 
 function populateMeshSelect() {
@@ -514,7 +647,7 @@ function populateMeshSelect() {
 
 function updateButtons() {
   const hasMesh = !meshSelect.disabled;
-  const hasPosTex = positionTexture !== null;
+  const hasPosTex = positionTextures.length > 0;
   const ready = hasMesh && hasPosTex;
 
   applyButton.disabled = !ready;
@@ -546,8 +679,8 @@ function applyMetadata(meta: Partial<VatMetadata>) {
 }
 
 function applyVat() {
-  if (!positionTexture) {
-    setStatus("Load a position texture first.");
+  if (positionTextures.length === 0) {
+    setStatus("Load at least one position texture first.");
     return;
   }
 
@@ -589,6 +722,13 @@ function applyVat() {
       diffuseTex = origMat.albedoTexture;
     }
 
+    // Build samplers list for all position textures
+    const samplers = [
+      "positionTexture0", "positionTexture1", "positionTexture2", "positionTexture3",
+      "positionTexture4", "positionTexture5", "positionTexture6", "positionTexture7",
+      "normalTexture", "diffuseTexture"
+    ];
+
     // Create VAT shader material
     vatMaterial = new ShaderMaterial(
       "vatMaterial",
@@ -603,7 +743,10 @@ function applyVat() {
           "world",
           "viewProjection",
           "worldViewProjection",
-          "positionTexture",
+          "positionTexture0", "positionTexture1", "positionTexture2", "positionTexture3",
+          "positionTexture4", "positionTexture5", "positionTexture6", "positionTexture7",
+          "numPosTextures",
+          "blendValue",
           "normalTexture",
           "vatTime",
           "numFrames",
@@ -623,7 +766,7 @@ function applyVat() {
           "diffuseTexture",
           "useDiffuseTex"
         ],
-        samplers: ["positionTexture", "normalTexture", "diffuseTexture"]
+        samplers
       }
     );
 
@@ -640,9 +783,16 @@ function applyVat() {
       Number(posMaxZ.value)
     );
 
-    const texSize = positionTexture.getSize();
+    const texSize = positionTextures[0].texture.getSize();
 
-    vatMaterial.setTexture("positionTexture", positionTexture);
+    // Set all position textures (use first texture as placeholder for unused slots)
+    for (let i = 0; i < 8; i++) {
+      const tex = i < positionTextures.length ? positionTextures[i].texture : positionTextures[0].texture;
+      vatMaterial.setTexture(`positionTexture${i}`, tex);
+    }
+    vatMaterial.setFloat("numPosTextures", positionTextures.length);
+    vatMaterial.setFloat("blendValue", blendValue);
+
     vatMaterial.setFloat("vatTime", 0);
     vatMaterial.setFloat("numFrames", numFrames);
     vatMaterial.setFloat("fps", fps);
@@ -705,17 +855,21 @@ function applyVat() {
       posMax: [posMax.x, posMax.y, posMax.z],
       isPacked,
       flipV: flipVCheckbox.checked,
-      useOffset: useOffsetCheckbox.checked
+      useOffset: useOffsetCheckbox.checked,
+      numPosTextures: positionTextures.length,
+      blendValue
     });
 
+    const texNames = positionTextures.map((pt, i) => `  ${i + 1}. ${pt.name}`).join("\n");
     setStatus(
       `VAT applied to "${mesh.name}".\n` +
         `Vertices: ${mesh.getTotalVertices()}, UV2: ${hasUV2 ? "Yes" : "NO!"}\n` +
-        `Texture: ${texSize.width}×${texSize.height}\n` +
+        `Position Textures (${positionTextures.length}):\n${texNames}\n` +
+        `Texture size: ${texSize.width}×${texSize.height}\n` +
         `Frames: ${numFrames}, FPS: ${fps}\n` +
         `Bounds: [${posMin.x.toFixed(2)}, ${posMin.y.toFixed(2)}, ${posMin.z.toFixed(2)}] → ` +
         `[${posMax.x.toFixed(2)}, ${posMax.y.toFixed(2)}, ${posMax.z.toFixed(2)}]\n` +
-        `UV2 sample: ${uv2Sample}\n` +
+        (positionTextures.length > 1 ? `Blend: ${blendValue.toFixed(2)}\n` : "") +
         `Click Play to animate.`
     );
   } catch (err) {
@@ -795,7 +949,7 @@ function parseUnityMaterial(text: string): Partial<VatMetadata> {
  * Creates a 10x10 grid of instances with staggered animation offsets
  */
 function applyInstancing(enable: boolean) {
-  if (!currentVatMesh || !vatMaterial || !positionTexture) {
+  if (!currentVatMesh || !vatMaterial || positionTextures.length === 0) {
     return;
   }
 
@@ -810,6 +964,13 @@ function applyInstancing(enable: boolean) {
     setStatus("Instancing disabled. Single mesh mode.");
     return;
   }
+
+  // Build samplers list for all position textures
+  const samplers = [
+    "positionTexture0", "positionTexture1", "positionTexture2", "positionTexture3",
+    "positionTexture4", "positionTexture5", "positionTexture6", "positionTexture7",
+    "normalTexture", "diffuseTexture"
+  ];
 
   // Create instanced shader material with INSTANCES define
   vatMaterialInstanced?.dispose();
@@ -826,7 +987,10 @@ function applyInstancing(enable: boolean) {
         "world",
         "viewProjection",
         "worldViewProjection",
-        "positionTexture",
+        "positionTexture0", "positionTexture1", "positionTexture2", "positionTexture3",
+        "positionTexture4", "positionTexture5", "positionTexture6", "positionTexture7",
+        "numPosTextures",
+        "blendValue",
         "normalTexture",
         "vatTime",
         "numFrames",
@@ -846,7 +1010,7 @@ function applyInstancing(enable: boolean) {
         "diffuseTexture",
         "useDiffuseTex"
       ],
-      samplers: ["positionTexture", "normalTexture", "diffuseTexture"],
+      samplers,
       defines: ["INSTANCES"]
     }
   );
@@ -864,9 +1028,16 @@ function applyInstancing(enable: boolean) {
     Number(posMaxY.value),
     Number(posMaxZ.value)
   );
-  const texSize = positionTexture.getSize();
+  const texSize = positionTextures[0].texture.getSize();
 
-  vatMaterialInstanced.setTexture("positionTexture", positionTexture);
+  // Set all position textures
+  for (let i = 0; i < 8; i++) {
+    const tex = i < positionTextures.length ? positionTextures[i].texture : positionTextures[0].texture;
+    vatMaterialInstanced.setTexture(`positionTexture${i}`, tex);
+  }
+  vatMaterialInstanced.setFloat("numPosTextures", positionTextures.length);
+  vatMaterialInstanced.setFloat("blendValue", blendValue);
+
   vatMaterialInstanced.setFloat("vatTime", vatTime);
   vatMaterialInstanced.setFloat("numFrames", numFrames);
   vatMaterialInstanced.setFloat("fps", fps);
