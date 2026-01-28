@@ -1,59 +1,133 @@
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
-body {
+html, body {
   margin: 0;
-  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #0f111a;
-  color: #e6e9f2;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
+body {
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  background: #0f111a;
+  color: #e6e9f2;
+  line-height: 1.5;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Header
+   ───────────────────────────────────────────────────────────────────────────── */
+
 header {
-  padding: 16px 24px;
+  padding: 12px 20px;
   background: linear-gradient(135deg, #1a1f2e 0%, #12161f 100%);
   border-bottom: 1px solid #2a3146;
+  flex-shrink: 0;
 }
 
 header h1 {
-  margin: 0 0 4px;
-  font-size: 20px;
+  margin: 0 0 2px;
+  font-size: 18px;
   font-weight: 600;
   color: #f0f4ff;
+  letter-spacing: -0.02em;
 }
 
 header p {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   color: #8b94b8;
 }
 
-main {
-  display: grid;
-  grid-template-columns: 320px 1fr;
-  min-height: calc(100vh - 70px);
+/* ─────────────────────────────────────────────────────────────────────────────
+   Main Layout
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
 }
+
+main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sidebar Controls
+   ───────────────────────────────────────────────────────────────────────────── */
 
 section.controls {
+  width: 340px;
+  min-width: 340px;
   background: #151924;
   padding: 16px;
+  padding-bottom: 24px;
   border-right: 1px solid #232a3e;
   overflow-y: auto;
-  max-height: calc(100vh - 70px);
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: #4a5166 #1a1f2e;
 }
+
+/* Inner wrapper for scroll content */
+section.controls .controls-inner {
+  flex: 1;
+  min-height: min-content;
+}
+
+section.controls::-webkit-scrollbar {
+  width: 8px;
+}
+
+section.controls::-webkit-scrollbar-track {
+  background: #1a1f2e;
+  border-radius: 4px;
+}
+
+section.controls::-webkit-scrollbar-thumb {
+  background: #4a5166;
+  border-radius: 4px;
+  border: 2px solid #1a1f2e;
+}
+
+section.controls::-webkit-scrollbar-thumb:hover {
+  background: #5a6176;
+}
+
+/* Canvas container */
+.canvas-container {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Control Groups
+   ───────────────────────────────────────────────────────────────────────────── */
 
 .control-group {
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
-.control-group label {
+.control-group > label {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   color: #9aa3c4;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
 }
 
 .control-group small {
@@ -61,120 +135,392 @@ section.controls {
   margin-top: 4px;
   font-size: 10px;
   color: #5a6280;
+  line-height: 1.4;
 }
 
-.control-group label input[type="checkbox"] {
-  margin-right: 8px;
-  vertical-align: middle;
+/* ─────────────────────────────────────────────────────────────────────────────
+   Checkbox Controls
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.control-group.checkbox-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
+
+.control-group.checkbox-group input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: #4a7dff;
+  cursor: pointer;
+}
+
+.control-group.checkbox-group .checkbox-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.control-group.checkbox-group .checkbox-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #e6e9f2;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+  margin-bottom: 2px;
+}
+
+.control-group.checkbox-group small {
+  margin-top: 2px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Inline Row Groups (using CSS Grid)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.inline-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.inline-row.two-col {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.inline-row .control-group {
+  margin-bottom: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Form Elements
+   ───────────────────────────────────────────────────────────────────────────── */
 
 input,
 select,
 button {
-  padding: 8px 10px;
-  border-radius: 5px;
+  padding: 10px 12px;
+  border-radius: 6px;
   border: 1px solid #2a3146;
   background: #0f1320;
   color: #e6e9f2;
   font-size: 13px;
+  font-family: inherit;
   width: 100%;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input::placeholder {
+  color: #5a6280;
+}
+
+input:hover:not(:disabled),
+select:hover:not(:disabled) {
+  border-color: #3a4156;
 }
 
 input:focus,
 select:focus {
   outline: none;
   border-color: #4a7dff;
+  box-shadow: 0 0 0 3px rgba(74, 125, 255, 0.15);
 }
+
+input:disabled,
+select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+input[type="file"] {
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+input[type="file"]::file-selector-button {
+  padding: 4px 10px;
+  margin-right: 10px;
+  border-radius: 4px;
+  border: 1px solid #3a4156;
+  background: #1a1f2e;
+  color: #e6e9f2;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+input[type="file"]::file-selector-button:hover {
+  background: #252b3d;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239aa3c4' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 32px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Buttons
+   ───────────────────────────────────────────────────────────────────────────── */
 
 button {
   cursor: pointer;
-  background: #2a5bd7;
-  border-color: #2a5bd7;
-  font-weight: 500;
+  background: linear-gradient(135deg, #3a6bdf 0%, #2a5bd7 100%);
+  border-color: transparent;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 button:hover:not(:disabled) {
-  background: #3568e8;
+  background: linear-gradient(135deg, #4a7bef 0%, #3a6be7 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(42, 91, 215, 0.3);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.4;
+  background: #2a3146;
+  transform: none;
+  box-shadow: none;
 }
 
-.control-group.inline {
-  display: inline-block;
-  width: calc(33.33% - 6px);
-  margin-right: 6px;
-  vertical-align: top;
+button.secondary {
+  background: linear-gradient(135deg, #3a4156 0%, #2a3146 100%);
+  border: 1px solid #4a5166;
 }
 
-.control-group.inline:last-of-type {
-  margin-right: 0;
+button.secondary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4a5166 0%, #3a4156 100%);
+  box-shadow: 0 4px 12px rgba(58, 65, 86, 0.3);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Bounds Inputs
+   ───────────────────────────────────────────────────────────────────────────── */
 
 .bounds-group .bounds-inputs {
-  display: flex;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
 .bounds-group .bounds-inputs input {
-  flex: 1;
   min-width: 0;
+  text-align: center;
+  padding: 10px 6px;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Action Buttons
+   ───────────────────────────────────────────────────────────────────────────── */
+
 .control-group.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #232a3e;
 }
 
 .control-group.actions button {
-  flex: 1;
-  min-width: 70px;
+  padding: 12px 16px;
 }
+
+.control-group.actions button#applyButton {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+}
+
+.control-group.actions button#applyButton:hover:not(:disabled) {
+  background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+  box-shadow: 0 4px 12px rgba(56, 161, 105, 0.3);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Dividers
+   ───────────────────────────────────────────────────────────────────────────── */
 
 hr {
   border: none;
   border-top: 1px solid #232a3e;
-  margin: 14px 0;
+  margin: 16px 0;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Status Display
+   ───────────────────────────────────────────────────────────────────────────── */
+
 #status {
-  margin: 12px 0 0;
-  padding: 10px;
+  margin: 16px 0 0;
+  padding: 12px;
   background: #0d1018;
-  border-radius: 5px;
+  border-radius: 6px;
   font-size: 11px;
-  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", "Consolas", monospace;
   color: #7dd3a0;
   white-space: pre-wrap;
   word-break: break-word;
-  min-height: 50px;
+  min-height: 60px;
   border: 1px solid #1e2536;
+  line-height: 1.5;
+  flex-shrink: 0;
 }
 
+/* Ensure last element has space at bottom */
+section.controls > *:last-child {
+  margin-bottom: 8px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Canvas / 3D Viewer
+   ───────────────────────────────────────────────────────────────────────────── */
+
 #renderCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   display: block;
-  background: #0a0d14;
+  background: radial-gradient(ellipse at center, #0f1420 0%, #080a10 100%);
+  outline: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Responsive / Mobile
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  section.controls {
+    width: 320px;
+    min-width: 320px;
+  }
+}
+
+@media (max-width: 900px) {
+  section.controls {
+    width: 300px;
+    min-width: 300px;
+  }
 }
 
 @media (max-width: 768px) {
   main {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+    flex-direction: column-reverse;
   }
 
   section.controls {
-    max-height: none;
+    width: 100%;
+    min-width: 100%;
+    max-height: 50vh;
     border-right: none;
-    border-bottom: 1px solid #232a3e;
+    border-top: 1px solid #232a3e;
+    padding: 14px;
+    padding-bottom: 20px;
   }
 
-  #renderCanvas {
+  .canvas-container {
+    flex: 1;
     min-height: 50vh;
+  }
+
+  header h1 {
+    font-size: 16px;
+  }
+
+  header p {
+    font-size: 11px;
+  }
+
+  .inline-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .inline-row.two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .control-group.actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .control-group.actions button#applyButton {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  header {
+    padding: 10px 14px;
+  }
+
+  section.controls {
+    padding: 12px;
+    padding-bottom: 16px;
+  }
+
+  .inline-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .bounds-group .bounds-inputs {
+    gap: 6px;
+  }
+
+  .control-group.actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Focus Visible (keyboard navigation)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+input:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 2px solid #4a7dff;
+  outline-offset: 2px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Reduced Motion
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+
+  button:hover:not(:disabled) {
+    transform: none;
   }
 }

@@ -14,6 +14,7 @@ import {
   Effect,
   Engine,
   HemisphericLight,
+  Matrix,
   Mesh,
   Scene,
   ShaderMaterial,
@@ -23,6 +24,7 @@ import {
   VertexBuffer
 } from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
+import "@babylonjs/inspector";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shader code for SideFX Labs VAT (Soft mode)
@@ -36,6 +38,15 @@ attribute vec3 position;
 attribute vec3 normal;
 attribute vec2 uv;
 attribute vec2 uv2;
+
+// Thin instance attributes (rows of the world matrix)
+#ifdef INSTANCES
+attribute vec4 world0;
+attribute vec4 world1;
+attribute vec4 world2;
+attribute vec4 world3;
+attribute float instanceTimeOffset;
+#endif
 
 // Uniforms
 uniform mat4 world;
@@ -63,13 +74,22 @@ varying vec3 vPosition;
 varying vec3 vDebugColor;
 
 void main() {
+    // Build instance world matrix if instancing is enabled
+    #ifdef INSTANCES
+    mat4 instanceWorld = mat4(world0, world1, world2, world3);
+    float effectiveTime = vatTime + instanceTimeOffset;
+    #else
+    mat4 instanceWorld = world;
+    float effectiveTime = vatTime;
+    #endif
+
     // SideFX Labs "Soft" method with tiled texture layout:
     // - Texture has multiple rows per frame (when vertices > texture width)
     // - UV2 contains the base coordinate for frame 0
     // - To get frame N, add frameOffset to UV2.y
     
     // Calculate current frame (loop)
-    float frame = floor(mod(vatTime * fps, numFrames));
+    float frame = floor(mod(effectiveTime * fps, numFrames));
     
     // Frame offset: each frame occupies (1.0 / numFrames) of the texture height
     float frameOffset = frame / numFrames;
@@ -119,11 +139,11 @@ void main() {
         animNormal = normalize(normSample.xyz * 2.0 - 1.0);
     }
 
-    vNormal = normalize((world * vec4(animNormal, 0.0)).xyz);
+    vNormal = normalize((instanceWorld * vec4(animNormal, 0.0)).xyz);
     vUV = uv;
-    vPosition = (world * vec4(animPos, 1.0)).xyz;
+    vPosition = (instanceWorld * vec4(animPos, 1.0)).xyz;
 
-    gl_Position = viewProjection * world * vec4(animPos, 1.0);
+    gl_Position = viewProjection * instanceWorld * vec4(animPos, 1.0);
 }
 `;
 
@@ -222,6 +242,9 @@ const resetButton = document.getElementById("resetButton") as HTMLButtonElement;
 const flipVCheckbox = document.getElementById("flipV") as HTMLInputElement;
 const useOffsetCheckbox = document.getElementById("useOffset") as HTMLInputElement;
 const debugModeSelect = document.getElementById("debugMode") as HTMLSelectElement;
+const instancedModeCheckbox = document.getElementById("instancedMode") as HTMLInputElement;
+const instanceSpacingInput = document.getElementById("instanceSpacing") as HTMLInputElement;
+const inspectorToggle = document.getElementById("inspectorToggle") as HTMLButtonElement;
 const statusEl = document.getElementById("status") as HTMLPreElement;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -234,10 +257,14 @@ let scene = createScene(engine);
 let positionTexture: Texture | null = null;
 let normalTexture: Texture | null = null;
 let vatMaterial: ShaderMaterial | null = null;
+let vatMaterialInstanced: ShaderMaterial | null = null;
 let originalMaterials = new Map<number, any>();
 let vatTime = 0;
 let isPlaying = false;
 let isPacked = true; // Assume packed (PNG) unless EXR
+let currentVatMesh: Mesh | null = null;
+let isInstancedMode = false;
+let isInspectorVisible = false;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Engine loop
@@ -245,10 +272,15 @@ let isPacked = true; // Assume packed (PNG) unless EXR
 
 engine.runRenderLoop(() => {
   scene.render();
-  if (vatMaterial && isPlaying) {
+  if (isPlaying) {
     const speed = Number(speedInput.value) || 1;
     vatTime += (engine.getDeltaTime() / 1000) * speed;
-    vatMaterial.setFloat("vatTime", vatTime);
+    if (vatMaterial) {
+      vatMaterial.setFloat("vatTime", vatTime);
+    }
+    if (vatMaterialInstanced) {
+      vatMaterialInstanced.setFloat("vatTime", vatTime);
+    }
   }
 });
 
@@ -347,6 +379,7 @@ pauseButton.addEventListener("click", () => {
 resetButton.addEventListener("click", () => {
   vatTime = 0;
   if (vatMaterial) vatMaterial.setFloat("vatTime", 0);
+  if (vatMaterialInstanced) vatMaterialInstanced.setFloat("vatTime", 0);
   setStatus("Reset to frame 0.");
 });
 
@@ -354,17 +387,55 @@ debugModeSelect.addEventListener("change", () => {
   if (vatMaterial) {
     vatMaterial.setFloat("debugMode", Number(debugModeSelect.value));
   }
+  if (vatMaterialInstanced) {
+    vatMaterialInstanced.setFloat("debugMode", Number(debugModeSelect.value));
+  }
 });
 
 flipVCheckbox.addEventListener("change", () => {
   if (vatMaterial) {
     vatMaterial.setFloat("flipV", flipVCheckbox.checked ? 1.0 : 0.0);
   }
+  if (vatMaterialInstanced) {
+    vatMaterialInstanced.setFloat("flipV", flipVCheckbox.checked ? 1.0 : 0.0);
+  }
 });
 
 useOffsetCheckbox.addEventListener("change", () => {
   if (vatMaterial) {
     vatMaterial.setFloat("useOffset", useOffsetCheckbox.checked ? 1.0 : 0.0);
+  }
+  if (vatMaterialInstanced) {
+    vatMaterialInstanced.setFloat("useOffset", useOffsetCheckbox.checked ? 1.0 : 0.0);
+  }
+});
+
+instancedModeCheckbox.addEventListener("change", () => {
+  if (currentVatMesh) {
+    applyInstancing(instancedModeCheckbox.checked);
+  }
+});
+
+instanceSpacingInput.addEventListener("change", () => {
+  if (currentVatMesh && instancedModeCheckbox.checked) {
+    applyInstancing(true);
+  }
+});
+
+inspectorToggle.addEventListener("click", () => {
+  if (isInspectorVisible) {
+    scene.debugLayer.hide();
+    inspectorToggle.textContent = "Show Inspector";
+    isInspectorVisible = false;
+  } else {
+    scene.debugLayer.show({
+      embedMode: true,
+      overlay: true,
+      showExplorer: true,
+      showInspector: true
+    });
+    inspectorToggle.textContent = "Hide Inspector";
+    isInspectorVisible = true;
   }
 });
 
@@ -395,8 +466,17 @@ function createScene(activeEngine: Engine): Scene {
 }
 
 function resetState() {
+  // Hide inspector before disposing scene
+  if (isInspectorVisible) {
+    scene.debugLayer.hide();
+    isInspectorVisible = false;
+    inspectorToggle.textContent = "Show Inspector";
+  }
+  
   vatMaterial?.dispose();
   vatMaterial = null;
+  vatMaterialInstanced?.dispose();
+  vatMaterialInstanced = null;
   positionTexture?.dispose();
   positionTexture = null;
   normalTexture?.dispose();
@@ -404,6 +484,9 @@ function resetState() {
   originalMaterials.clear();
   vatTime = 0;
   isPlaying = false;
+  currentVatMesh = null;
+  isInstancedMode = false;
+  instancedModeCheckbox.checked = false;
 }
 
 function populateMeshSelect() {
@@ -591,6 +674,12 @@ function applyVat() {
     mesh.material = vatMaterial;
     vatTime = 0;
     isPlaying = false;
+    currentVatMesh = mesh;
+    
+    // Apply instancing if checkbox is already checked
+    if (instancedModeCheckbox.checked) {
+      applyInstancing(true);
+    }
 
     // Log debug info
     const hasUV2 = mesh.isVerticesDataPresent(VertexBuffer.UV2Kind);
@@ -692,5 +781,164 @@ function parseUnityMaterial(text: string): Partial<VatMetadata> {
 
   console.log("Parsed Unity material:", meta);
   return meta;
+}
+
+/**
+ * Apply or remove instancing to the current VAT mesh
+ * Creates a 10x10 grid of instances with staggered animation offsets
+ */
+function applyInstancing(enable: boolean) {
+  if (!currentVatMesh || !vatMaterial || !positionTexture) {
+    return;
+  }
+
+  isInstancedMode = enable;
+
+  if (!enable) {
+    // Remove instances
+    currentVatMesh.thinInstanceCount = 0;
+    currentVatMesh.material = vatMaterial;
+    vatMaterialInstanced?.dispose();
+    vatMaterialInstanced = null;
+    setStatus("Instancing disabled. Single mesh mode.");
+    return;
+  }
+
+  // Create instanced shader material with INSTANCES define
+  vatMaterialInstanced?.dispose();
+  vatMaterialInstanced = new ShaderMaterial(
+    "vatMaterialInstanced",
+    scene,
+    {
+      vertex: "sidefxVat",
+      fragment: "sidefxVat"
+    },
+    {
+      attributes: ["position", "normal", "uv", "uv2", "world0", "world1", "world2", "world3", "instanceTimeOffset"],
+      uniforms: [
+        "world",
+        "viewProjection",
+        "worldViewProjection",
+        "positionTexture",
+        "normalTexture",
+        "vatTime",
+        "numFrames",
+        "fps",
+        "posMin",
+        "posMax",
+        "texSize",
+        "useNormalTex",
+        "isPacked",
+        "flipV",
+        "useOffset",
+        "debugMode",
+        "lightDirection",
+        "lightColor",
+        "ambientColor",
+        "diffuseColor",
+        "diffuseTexture",
+        "useDiffuseTex"
+      ],
+      samplers: ["positionTexture", "normalTexture", "diffuseTexture"],
+      defines: ["INSTANCES"]
+    }
+  );
+
+  // Copy all uniform values from the non-instanced material
+  const numFrames = Number(numFramesInput.value) || 24;
+  const fps = Number(fpsInput.value) || 24;
+  const posMin = new Vector3(
+    Number(posMinX.value),
+    Number(posMinY.value),
+    Number(posMinZ.value)
+  );
+  const posMax = new Vector3(
+    Number(posMaxX.value),
+    Number(posMaxY.value),
+    Number(posMaxZ.value)
+  );
+  const texSize = positionTexture.getSize();
+
+  vatMaterialInstanced.setTexture("positionTexture", positionTexture);
+  vatMaterialInstanced.setFloat("vatTime", vatTime);
+  vatMaterialInstanced.setFloat("numFrames", numFrames);
+  vatMaterialInstanced.setFloat("fps", fps);
+  vatMaterialInstanced.setVector3("posMin", posMin);
+  vatMaterialInstanced.setVector3("posMax", posMax);
+  vatMaterialInstanced.setVector2("texSize", new Vector2(texSize.width, texSize.height));
+  vatMaterialInstanced.setFloat("isPacked", isPacked ? 1.0 : 0.0);
+  vatMaterialInstanced.setFloat("flipV", flipVCheckbox.checked ? 1.0 : 0.0);
+  vatMaterialInstanced.setFloat("useOffset", useOffsetCheckbox.checked ? 1.0 : 0.0);
+  vatMaterialInstanced.setFloat("debugMode", Number(debugModeSelect.value));
+
+  if (normalTexture) {
+    vatMaterialInstanced.setTexture("normalTexture", normalTexture);
+    vatMaterialInstanced.setFloat("useNormalTex", 1.0);
+  } else {
+    vatMaterialInstanced.setFloat("useNormalTex", 0.0);
+  }
+
+  vatMaterialInstanced.setVector3("lightDirection", new Vector3(0.5, 1, 0.3));
+  vatMaterialInstanced.setColor3("lightColor", new Color3(1, 1, 1));
+  vatMaterialInstanced.setColor3("ambientColor", new Color3(0.15, 0.15, 0.18));
+  vatMaterialInstanced.setColor3("diffuseColor", new Color3(0.9, 0.9, 0.9));
+  vatMaterialInstanced.setFloat("useDiffuseTex", 0.0);
+  vatMaterialInstanced.backFaceCulling = false;
+
+  // Create 10x10 grid of instances
+  const instanceCount = 100;
+  const gridSize = 10;
+  const spacing = Number(instanceSpacingInput.value) || 3;
+  
+  // Calculate animation duration for offset distribution
+  const animDuration = numFrames / fps;
+
+  // Prepare instance matrices (16 floats per instance)
+  const matricesData = new Float32Array(instanceCount * 16);
+  
+  // Prepare time offsets (1 float per instance)
+  const timeOffsets = new Float32Array(instanceCount);
+
+  // Calculate grid offset to center the grid
+  const gridOffset = ((gridSize - 1) * spacing) / 2;
+
+  for (let i = 0; i < instanceCount; i++) {
+    const row = Math.floor(i / gridSize);
+    const col = i % gridSize;
+
+    // Position in grid, centered around origin
+    const x = col * spacing - gridOffset;
+    const z = row * spacing - gridOffset;
+
+    // Create transformation matrix
+    const matrix = Matrix.Translation(x, 0, z);
+    matrix.copyToArray(matricesData, i * 16);
+
+    // Distribute time offsets evenly across the animation duration
+    // This creates a wave-like effect across the grid
+    timeOffsets[i] = ((row + col) / (gridSize * 2 - 2)) * animDuration;
+  }
+
+  // Apply thin instances
+  currentVatMesh.thinInstanceSetBuffer("matrix", matricesData, 16, false);
+  
+  // Register custom time offset buffer
+  currentVatMesh.thinInstanceSetBuffer("instanceTimeOffset", timeOffsets, 1, false);
+  
+  // Set the instanced material
+  currentVatMesh.material = vatMaterialInstanced;
+
+  setStatus(
+    `Instancing enabled: ${instanceCount} instances in ${gridSize}×${gridSize} grid.\n` +
+    `Spacing: ${spacing} units, Animation offsets: 0 to ${animDuration.toFixed(2)}s`
+  );
+
+  console.log("Instanced VAT debug mode enabled:", {
+    instanceCount,
+    gridSize,
+    spacing,
+    animDuration,
+    timeOffsetRange: [0, animDuration]
+  });
 }
 
