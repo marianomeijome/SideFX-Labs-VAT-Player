@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SideFX Labs VAT Player</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>SideFX Labs VAT Player</h1>
+    <p>Load a mesh + position texture exported from Houdini SideFX Labs VAT</p>
+  </header>
+
+  <main>
+    <section class="controls">
+      <div class="control-group">
+        <label for="modelInput">Mesh (GLB/glTF)</label>
+        <input type="file" id="modelInput" accept=".glb,.gltf" />
+      </div>
+
+      <div class="control-group">
+        <label for="posTexInput">Position Texture (_pos.png)</label>
+        <input type="file" id="posTexInput" accept=".png,.jpg,.jpeg,.tif,.tiff" />
+      </div>
+
+      <div class="control-group">
+        <label for="normalTexInput">Normal Texture (optional)</label>
+        <input type="file" id="normalTexInput" accept=".png,.jpg,.jpeg,.tif,.tiff" />
+        <small>Use _norm.png if exported. Skip for soft body.</small>
+      </div>
+
+      <div class="control-group">
+        <label for="metaInput">Metadata (Unity .mat)</label>
+        <input type="file" id="metaInput" accept=".mat,.json,.yaml,.txt" />
+      </div>
+
+      <hr />
+
+      <div class="control-group">
+        <label for="meshSelect">Target Mesh</label>
+        <select id="meshSelect" disabled></select>
+      </div>
+
+      <div class="control-group inline">
+        <label for="numFrames">Frames</label>
+        <input type="number" id="numFrames" value="24" min="1" step="1" />
+      </div>
+
+      <div class="control-group inline">
+        <label for="fps">FPS</label>
+        <input type="number" id="fps" value="24" min="1" step="1" />
+      </div>
+
+      <div class="control-group inline">
+        <label for="speedInput">Speed</label>
+        <input type="number" id="speedInput" value="1" min="0.1" step="0.1" />
+      </div>
+
+      <hr />
+
+      <div class="control-group bounds-group">
+        <label>Position Bounds (min XYZ)</label>
+        <div class="bounds-inputs">
+          <input type="number" id="posMinX" value="-1" step="0.1" />
+          <input type="number" id="posMinY" value="-1" step="0.1" />
+          <input type="number" id="posMinZ" value="-1" step="0.1" />
+        </div>
+      </div>
+
+      <div class="control-group bounds-group">
+        <label>Position Bounds (max XYZ)</label>
+        <div class="bounds-inputs">
+          <input type="number" id="posMaxX" value="1" step="0.1" />
+          <input type="number" id="posMaxY" value="1" step="0.1" />
+          <input type="number" id="posMaxZ" value="1" step="0.1" />
+        </div>
+      </div>
+
+      <hr />
+
+      <div class="control-group">
+        <label for="flipV">
+          <input type="checkbox" id="flipV" checked /> Flip V (texture Y axis)
+        </label>
+      </div>
+
+      <div class="control-group">
+        <label for="useOffset">
+          <input type="checkbox" id="useOffset" checked /> Offset mode (add to rest pose)
+        </label>
+      </div>
+
+      <div class="control-group">
+        <label for="debugMode">Debug View</label>
+        <select id="debugMode">
+          <option value="0">Normal rendering</option>
+          <option value="1">Show UV2 (vertex indices)</option>
+          <option value="2">Show normals</option>
+          <option value="3">Show raw texture sample</option>
+        </select>
+      </div>
+
+      <div class="control-group actions">
+        <button id="applyButton" disabled>Apply VAT</button>
+        <button id="playButton" disabled>▶ Play</button>
+        <button id="pauseButton" disabled>⏸ Pause</button>
+        <button id="resetButton" disabled>↺ Reset</button>
+      </div>
+
+      <pre id="status">Load a mesh and position texture to begin.</pre>
+    </section>
+
+    <canvas id="renderCanvas"></canvas>
+  </main>
+
+  <script type="module" src="../dist/sidefx-player.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,180 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #0f111a;
+  color: #e6e9f2;
+}
+
+header {
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #1a1f2e 0%, #12161f 100%);
+  border-bottom: 1px solid #2a3146;
+}
+
+header h1 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #f0f4ff;
+}
+
+header p {
+  margin: 0;
+  font-size: 13px;
+  color: #8b94b8;
+}
+
+main {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  min-height: calc(100vh - 70px);
+}
+
+section.controls {
+  background: #151924;
+  padding: 16px;
+  border-right: 1px solid #232a3e;
+  overflow-y: auto;
+  max-height: calc(100vh - 70px);
+}
+
+.control-group {
+  margin-bottom: 12px;
+}
+
+.control-group label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #9aa3c4;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.control-group small {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: #5a6280;
+}
+
+.control-group label input[type="checkbox"] {
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+input,
+select,
+button {
+  padding: 8px 10px;
+  border-radius: 5px;
+  border: 1px solid #2a3146;
+  background: #0f1320;
+  color: #e6e9f2;
+  font-size: 13px;
+  width: 100%;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: #4a7dff;
+}
+
+button {
+  cursor: pointer;
+  background: #2a5bd7;
+  border-color: #2a5bd7;
+  font-weight: 500;
+}
+
+button:hover:not(:disabled) {
+  background: #3568e8;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.control-group.inline {
+  display: inline-block;
+  width: calc(33.33% - 6px);
+  margin-right: 6px;
+  vertical-align: top;
+}
+
+.control-group.inline:last-of-type {
+  margin-right: 0;
+}
+
+.bounds-group .bounds-inputs {
+  display: flex;
+  gap: 6px;
+}
+
+.bounds-group .bounds-inputs input {
+  flex: 1;
+  min-width: 0;
+}
+
+.control-group.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.control-group.actions button {
+  flex: 1;
+  min-width: 70px;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #232a3e;
+  margin: 14px 0;
+}
+
+#status {
+  margin: 12px 0 0;
+  padding: 10px;
+  background: #0d1018;
+  border-radius: 5px;
+  font-size: 11px;
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  color: #7dd3a0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 50px;
+  border: 1px solid #1e2536;
+}
+
+#renderCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #0a0d14;
+}
+
+@media (max-width: 768px) {
+  main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  section.controls {
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid #232a3e;
+  }
+
+  #renderCanvas {
+    min-height: 50vh;
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "sidefx-vat-player",
+  "version": "1.0.0",
+  "description": "Babylon.js player for SideFX Labs Vertex Animation Textures",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "dev": "node scripts/build.mjs --serve"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^8.47.0",
+    "@babylonjs/loaders": "^8.47.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.3"
+  }
+}
