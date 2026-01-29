@@ -77,6 +77,7 @@ uniform float isPacked;
 uniform float debugMode;
 uniform float flipV;
 uniform float useOffset;
+uniform float interpolateFrames;
 
 // Varyings
 varying vec3 vNormal;
@@ -97,6 +98,22 @@ vec4 samplePosTexture(int idx, vec2 uv) {
     return texture2D(positionTexture0, uv);
 }
 
+// Helper to sample position with optional multi-texture blending
+vec4 samplePosition(vec2 uv) {
+    if (numPosTextures <= 1.0) {
+        return samplePosTexture(0, uv);
+    } else {
+        float t = blendValue * (numPosTextures - 1.0);
+        int idx0 = int(floor(t));
+        int idx1 = int(min(floor(t) + 1.0, numPosTextures - 1.0));
+        float localBlend = fract(t);
+        
+        vec4 sample0 = samplePosTexture(idx0, uv);
+        vec4 sample1 = samplePosTexture(idx1, uv);
+        return mix(sample0, sample1, localBlend);
+    }
+}
+
 void main() {
     // Build instance world matrix if instancing is enabled
     #ifdef INSTANCES
@@ -112,38 +129,40 @@ void main() {
     // - UV2 contains the base coordinate for frame 0
     // - To get frame N, add frameOffset to UV2.y
     
-    // Calculate current frame (loop)
-    float frame = floor(mod(effectiveTime * fps, numFrames));
+    // Calculate frame time with looping
+    float frameTime = mod(effectiveTime * fps, numFrames);
+    float frame0 = floor(frameTime);
+    float frame1 = mod(frame0 + 1.0, numFrames);
+    float frameFrac = fract(frameTime);
     
-    // Frame offset: each frame occupies (1.0 / numFrames) of the texture height
-    float frameOffset = frame / numFrames;
+    // Frame offsets: each frame occupies (1.0 / numFrames) of the texture height
+    float frameOffset0 = frame0 / numFrames;
+    float frameOffset1 = frame1 / numFrames;
     
     // UV2 is the coordinate within frame 0, add offset for current frame
     float finalU = uv2.x;
-    float finalV = uv2.y + frameOffset;
+    float finalV0 = uv2.y + frameOffset0;
+    float finalV1 = uv2.y + frameOffset1;
     
     // Handle flipV if needed (some exports have frame 0 at bottom)
     if (flipV > 0.5) {
-        finalV = 1.0 - finalV;
+        finalV0 = 1.0 - finalV0;
+        finalV1 = 1.0 - finalV1;
     }
     
-    vec2 posUV = vec2(finalU, finalV);
+    vec2 posUV0 = vec2(finalU, finalV0);
+    vec2 posUV1 = vec2(finalU, finalV1);
     
-    // Sample and blend between position textures
+    // Sample position texture(s)
     vec4 posSample;
-    if (numPosTextures <= 1.0) {
-        // Single texture, no blending
-        posSample = samplePosTexture(0, posUV);
+    if (interpolateFrames > 0.5) {
+        // Interpolate between current and next frame
+        vec4 sample0 = samplePosition(posUV0);
+        vec4 sample1 = samplePosition(posUV1);
+        posSample = mix(sample0, sample1, frameFrac);
     } else {
-        // Multiple textures: interpolate based on blend value
-        float t = blendValue * (numPosTextures - 1.0);
-        int idx0 = int(floor(t));
-        int idx1 = int(min(floor(t) + 1.0, numPosTextures - 1.0));
-        float localBlend = fract(t);
-        
-        vec4 sample0 = samplePosTexture(idx0, posUV);
-        vec4 sample1 = samplePosTexture(idx1, posUV);
-        posSample = mix(sample0, sample1, localBlend);
+        // Snap to nearest frame (no interpolation)
+        posSample = samplePosition(posUV0);
     }
 
     // Decode position from texture
@@ -169,14 +188,21 @@ void main() {
     if (debugMode > 2.5) {
         vDebugColor = posSample.xyz;
     } else {
-        vDebugColor = vec3(uv2.x, uv2.y * 10.0, frame / numFrames);
+        vDebugColor = vec3(uv2.x, uv2.y * 10.0, frame0 / numFrames);
     }
 
-    // Sample normal texture if available
+    // Sample normal texture if available (also interpolate if enabled)
     vec3 animNormal = normal;
     if (useNormalTex > 0.5) {
-        vec4 normSample = texture2D(normalTexture, posUV);
-        animNormal = normalize(normSample.xyz * 2.0 - 1.0);
+        if (interpolateFrames > 0.5) {
+            vec4 normSample0 = texture2D(normalTexture, posUV0);
+            vec4 normSample1 = texture2D(normalTexture, posUV1);
+            vec4 normSample = mix(normSample0, normSample1, frameFrac);
+            animNormal = normalize(normSample.xyz * 2.0 - 1.0);
+        } else {
+            vec4 normSample = texture2D(normalTexture, posUV0);
+            animNormal = normalize(normSample.xyz * 2.0 - 1.0);
+        }
     }
 
     vNormal = normalize((instanceWorld * vec4(animNormal, 0.0)).xyz);
@@ -286,6 +312,7 @@ const pauseButton = document.getElementById("pauseButton") as HTMLButtonElement;
 const resetButton = document.getElementById("resetButton") as HTMLButtonElement;
 const flipVCheckbox = document.getElementById("flipV") as HTMLInputElement;
 const useOffsetCheckbox = document.getElementById("useOffset") as HTMLInputElement;
+const interpolateFramesCheckbox = document.getElementById("interpolateFrames") as HTMLInputElement;
 const debugModeSelect = document.getElementById("debugMode") as HTMLSelectElement;
 const instancedModeCheckbox = document.getElementById("instancedMode") as HTMLInputElement;
 const instanceCountInput = document.getElementById("instanceCount") as HTMLInputElement;
@@ -506,6 +533,15 @@ useOffsetCheckbox.addEventListener("change", () => {
   }
   if (vatMaterialInstanced) {
     vatMaterialInstanced.setFloat("useOffset", useOffsetCheckbox.checked ? 1.0 : 0.0);
+  }
+});
+
+interpolateFramesCheckbox.addEventListener("change", () => {
+  if (vatMaterial) {
+    vatMaterial.setFloat("interpolateFrames", interpolateFramesCheckbox.checked ? 1.0 : 0.0);
+  }
+  if (vatMaterialInstanced) {
+    vatMaterialInstanced.setFloat("interpolateFrames", interpolateFramesCheckbox.checked ? 1.0 : 0.0);
   }
 });
 
@@ -758,6 +794,7 @@ function applyVat() {
           "isPacked",
           "flipV",
           "useOffset",
+          "interpolateFrames",
           "debugMode",
           "lightDirection",
           "lightColor",
@@ -802,6 +839,7 @@ function applyVat() {
     vatMaterial.setFloat("isPacked", isPacked ? 1.0 : 0.0);
     vatMaterial.setFloat("flipV", flipVCheckbox.checked ? 1.0 : 0.0);
     vatMaterial.setFloat("useOffset", useOffsetCheckbox.checked ? 1.0 : 0.0);
+    vatMaterial.setFloat("interpolateFrames", interpolateFramesCheckbox.checked ? 1.0 : 0.0);
     vatMaterial.setFloat("debugMode", Number(debugModeSelect.value));
 
     // Normal texture
@@ -1002,6 +1040,7 @@ function applyInstancing(enable: boolean) {
         "isPacked",
         "flipV",
         "useOffset",
+        "interpolateFrames",
         "debugMode",
         "lightDirection",
         "lightColor",
@@ -1047,6 +1086,7 @@ function applyInstancing(enable: boolean) {
   vatMaterialInstanced.setFloat("isPacked", isPacked ? 1.0 : 0.0);
   vatMaterialInstanced.setFloat("flipV", flipVCheckbox.checked ? 1.0 : 0.0);
   vatMaterialInstanced.setFloat("useOffset", useOffsetCheckbox.checked ? 1.0 : 0.0);
+  vatMaterialInstanced.setFloat("interpolateFrames", interpolateFramesCheckbox.checked ? 1.0 : 0.0);
   vatMaterialInstanced.setFloat("debugMode", Number(debugModeSelect.value));
 
   if (normalTexture) {
