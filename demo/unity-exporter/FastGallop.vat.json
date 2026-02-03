@@ -1,0 +1,22 @@
+{
+    "numFrames": 10,
+    "fps": 25,
+    "posMin": [
+        -0.30209094285964968,
+        -2.0171186923980715,
+        -0.03173535689711571
+    ],
+    "posMax": [
+        0.33621373772621157,
+        1.4206570386886597,
+        2.016644239425659
+    ],
+    "width": 3692,
+    "height": 10,
+    "packed": true,
+    "method": "soft",
+    "positionTexture": "FastGallop_pos.png",
+    "normalTexture": "FastGallop_norm.png",
+    "mesh": "FastGallop.glb",
+    "vertexCount": 3692
+}

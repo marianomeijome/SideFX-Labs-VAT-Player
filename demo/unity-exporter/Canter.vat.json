@@ -1,0 +1,22 @@
+{
+    "numFrames": 16,
+    "fps": 25,
+    "posMin": [
+        -0.3279264569282532,
+        -1.9057536125183106,
+        -0.008205259218811989
+    ],
+    "posMax": [
+        0.4523756206035614,
+        1.2499130964279175,
+        2.226869821548462
+    ],
+    "width": 3692,
+    "height": 16,
+    "packed": true,
+    "method": "soft",
+    "positionTexture": "Canter_pos.png",
+    "normalTexture": "Canter_norm.png",
+    "mesh": "Canter.glb",
+    "vertexCount": 3692
+}
